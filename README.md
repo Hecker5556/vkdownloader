@@ -36,10 +36,17 @@ nsid = "nsid"
 replacing sid and nsid with the cookies/Замените sid и nsid на cookie
 
 ## how to get those cookies/как получить cookies
+
 ![hello](first.png)
+
 go inspect element and select network and reload page/перейдите к осмотру элемента, выберите сеть и перезагрузите страницу
+
 ![hello 2](second.png)
+
 right-click first request and copy as bash/posix/щелкните правой кнопкой мыши первый запрос и скопируйте его как bash/posix
+
 paste into/вставить в [https://curlconverter.com](https://curlconverter.com)
+
 ![Alt text](image.png)
+
 find the values and youre done/найдите значения, и все готово
