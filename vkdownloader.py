@@ -18,8 +18,8 @@ class downloader:
             nsi = nsid
         cookies = {
             'remixmdevice': '453/685/2.0000000298023224/!!!!!!!!!!!-/400',
-            'remixnsid': nsid,
-            'remixsid': sid,
+            'remixnsid': nsi,
+            'remixsid': si,
         }
         origurl = url
         if 'wall' in url:
@@ -62,7 +62,6 @@ class downloader:
                 filenames.append(filename)
                 await downloader.downloader(image, filename, headers, cookies)
             return filenames
-        print(author)
     async def downloader(url, filename, headers, cookies):
         async with aiofiles.open(filename, 'wb') as f1:
             async with aiohttp.ClientSession() as session:
@@ -177,4 +176,4 @@ if __name__ == "__main__":
     parser.add_argument("link", type=str, help="link to vk post/линк до посту")
     parser.add_argument("-m", type=int, help="max size of video in mb/максимальный размер видео в мб")
     args = parser.parse_args()
-    asyncio.run(downloader.download(args.link, args.m))
+    print(asyncio.run(downloader.download(args.link, maxsize=args.m)))
