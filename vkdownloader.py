@@ -1,9 +1,18 @@
 import asyncio, aiohttp, aiofiles, re, json
 from tqdm.asyncio import tqdm
 from datetime import datetime
-
+from aiohttp_socks import ProxyConnector
 class downloader:
-    async def download(url: str, si = None, nsi = None, maxsize: int = None):
+    def createconnector(proxy: str) -> aiohttp.TCPConnector:
+        connector = aiohttp.TCPConnector()
+        if "socks" in proxy:
+            if "socks5h" in proxy:
+                prox = proxy.replace("socks5h", "socks5")
+                connector = ProxyConnector.from_url(url=prox)
+        elif proxy:
+            connector = ProxyConnector.from_url(url=proxy)
+        return connector
+    async def download(url: str, si = None, nsi = None, maxsize: int = None, proxy: str = None):
         headers = {
             'authority': 'm.vk.com',
             'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -12,6 +21,7 @@ class downloader:
             'referer': 'https://m.vk.com/',
             'user-agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Mobile Safari/537.36',
         }
+
         if not si and not nsi:
             from env import sid, nsid
             si = sid
@@ -22,13 +32,15 @@ class downloader:
             'remixsid': si,
         }
         origurl = url
+        connector = downloader.createconnector(proxy)
         if 'wall' in url:
-            origurl, author = await downloader.exracturl(url, headers, cookies)
+            origurl, author = await downloader.exracturl(url, headers, cookies, connector)
         if "video" in origurl:
-            thejson, author = await downloader.extractjson(origurl, headers, cookies)
+            thejson, author = await downloader.extractjson(origurl, headers, cookies, connector)
             videos = thejson[5]["apiPrefetchCache"][0]["response"]["items"][0]["files"]
             videoinfo = {}
-            async with aiohttp.ClientSession() as session:
+            connector = downloader.createconnector(proxy)
+            async with aiohttp.ClientSession(connector=connector) as session:
                 for key, value in videos.items():
                     if key == "failover_host":
                         continue
@@ -44,27 +56,32 @@ class downloader:
                     continue
             
                 filename = f"{author}-{round(datetime.now().timestamp())}.mp4"
-                await downloader.downloader(videos.get(key), filename, headers, cookies)
+                connector = downloader.createconnector(proxy)
+                await downloader.downloader(videos.get(key), filename, headers, cookies, connector)
                 break
             return filename
                 
         elif "wall" in origurl:
-            image = await downloader.extractimage(origurl, headers, cookies)
+            connector = downloader.createconnector(proxy)
+            image = await downloader.extractimage(origurl, headers, cookies, connector)
 
             filename = f"{author}-{round(datetime.now().timestamp())}.jpg"
-            await downloader.downloader(image, filename, headers, cookies)
+            connector = downloader.createconnector(proxy)
+            await downloader.downloader(image, filename, headers, cookies, connector)
             return filename
         elif "album" in origurl:
-            images, author = await downloader.extractimages(origurl, headers, cookies)
+            connector = downloader.createconnector(proxy)
+            images, author = await downloader.extractimages(origurl, headers, cookies, connector)
             filenames = []
             for index, image in enumerate(images):
                 filename = f"{author}-{round(datetime.now().timestamp())}-{index}.jpg"
                 filenames.append(filename)
-                await downloader.downloader(image, filename, headers, cookies)
+                connector = downloader.createconnector(proxy)
+                await downloader.downloader(image, filename, headers, cookies, connector)
             return filenames
-    async def downloader(url, filename, headers, cookies):
+    async def downloader(url, filename, headers, cookies, connector):
         async with aiofiles.open(filename, 'wb') as f1:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(connector=connector) as session:
                 async with session.get(url, headers=headers, cookies=cookies) as r:
                     progress =tqdm(total=int(r.headers.get('content-length')), unit="iB", unit_scale=True)
                     while True:
@@ -74,8 +91,8 @@ class downloader:
                         await f1.write(chunk)
                         progress.update(len(chunk))
                     progress.close()
-    async def extractimage(url, headers, cookies):
-        async with aiohttp.ClientSession() as session:
+    async def extractimage(url, headers, cookies, connector):
+        async with aiohttp.ClientSession(connector=connector) as session:
             async with session.get(url, headers=headers, cookies=cookies) as r:
                 pattern = r'background-image: url\((.*?)\);\"  class=\"thumb_map_img thumb_map_img_as_div\"'
                 matches = None
@@ -92,12 +109,12 @@ class downloader:
                         matches = matches[0]
                         break
         return matches
-    async def extractimages(url, headers, cookies):
+    async def extractimages(url, headers, cookies, connector):
         images = []
         pattern = r'data-src_big=\"(.*?)\"'
         pattern2 = r'<a href=\"/(.*?)\" class=\"PhotosPhotoItem al_photo\"'
         author = None
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(connector=connector) as session:
             async with session.get(url, headers=headers, cookies=cookies) as r:
                 while True:
                     chunk = await r.content.read(1024*20)
@@ -125,7 +142,7 @@ class downloader:
                             author = mat[0]
 
         return images, author
-    async def exracturl(url: str, headers, cookies):
+    async def exracturl(url: str, headers, cookies, connector):
         """extracts original url for post"""
 
 
@@ -134,7 +151,7 @@ class downloader:
         pattern2 = r'<title>Post from (?:.*?) \| (.*?)</title>'
         matches = False
         matches2 = False
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(connector=connector) as session:
             async with session.get(url, cookies=cookies, headers=headers) as r:
                 while True:
                     chunk = await r.content.read(1024*10)
@@ -152,10 +169,10 @@ class downloader:
                     if matches and matches2:
                         break
         return matches, matches2
-    async def extractjson(url, headers, cookies):
+    async def extractjson(url, headers, cookies, connector):
         pattern = r'window\.extend\(window\.lang,({\"global_date_l\":(?:.*?))\;vk\.started=Date\.now\(\);onlo'
         pattern2 = r'\"md_author\":\"(.*?)\"'
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(connector=connector) as session:
             async with session.get(url, headers=headers, cookies=cookies) as r:
                 rtext = await r.text(encoding="utf-8")
         matches = re.findall(pattern, rtext)
@@ -175,5 +192,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("link", type=str, help="link to vk post/линк до посту")
     parser.add_argument("-m", type=int, help="max size of video in mb/максимальный размер видео в мб")
+    parser.add_argument("-p", type=str, help="proxy")
     args = parser.parse_args()
-    print(asyncio.run(downloader.download(args.link, maxsize=args.m)))
+    print(asyncio.run(downloader.download(args.link, maxsize=args.m, proxy=args.p)))

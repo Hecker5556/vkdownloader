@@ -35,6 +35,8 @@ nsid = "nsid"
 ```
 replacing sid and nsid with the cookies/Замените sid и nsid на cookie
 
+**btw the cookies only work for ip that generated them/cookies работают только для ip, которые их сгенерировали**
+
 ## how to get those cookies/как получить cookies
 
 ![hello](first.png)
